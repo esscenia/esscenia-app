@@ -1,124 +1,2335 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Gestión Escuela ESSCENIA</title>
-  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión Escuela ESSCENIA</title>
+    <!-- Vue.js -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        [v-cloak] { display: none; }
+        body { padding-top: 70px; background-color: #f8f9fa; }
+        .table-hover tbody tr:hover { background-color: rgba(0,0,0,0.075); }
+        .inactive { opacity: 0.6; }
+        .modal-backdrop { opacity: 0.5; }
+        .card { margin-bottom: 20px; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075); }
+        .card-header { background-color: #f8f9fa; }
+        .btn-group-sm .btn { margin-right: 2px; }
+        .alert-custom { border-left: 4px solid #007bff; background-color: #f8f9ff; }
+        .dashboard-card { transition: all 0.3s; }
+        .dashboard-card:hover { transform: translateY(-5px); box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15); }
+        .badge-pill { border-radius: 50rem; }
+        .text-right { text-align: right; }
+        .cursor-pointer { cursor: pointer; }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+    </style>
 </head>
 <body>
-  <div id="app">
-    <div class="container mt-4">
-      <h1>Gestión de Alumnos - ESSCENIA</h1>
+    <div id="app" v-cloak>
+        <!-- Navbar -->
+        <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top">
+            <div class="container">
+                <a class="navbar-brand" href="#">
+                    <i class="bi bi-mortarboard-fill text-primary me-2"></i>
+                    Gestión ESSCENIA
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav">
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" @click.prevent="currentView = 'dashboard'" 
+                               :class="{'active': currentView === 'dashboard'}">
+                                <i class="bi bi-speedometer2"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" @click.prevent="currentView = 'students'"
+                               :class="{'active': currentView === 'students'}">
+                                <i class="bi bi-people"></i> Alumnos
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" @click.prevent="currentView = 'classes'"
+                               :class="{'active': currentView === 'classes'}">
+                                <i class="bi bi-book"></i> Clases
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" @click.prevent="currentView = 'invoices'"
+                               :class="{'active': currentView === 'invoices'}">
+                                <i class="bi bi-receipt"></i> Recibos
+                            </a>
+                        </li>
+                    </ul>
+                    <div class="ms-auto">
+                        <button class="btn btn-outline-secondary btn-sm" @click="exportData">
+                            <i class="bi bi-download me-1"></i> Exportar Datos
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
 
-      <button class="btn btn-primary mb-3" @click="agregarAlumno">Agregar Alumno</button>
+        <div class="container">
+            <!-- Alerta de operación -->
+            <div v-if="alert.show" class="alert" :class="'alert-' + alert.type" role="alert">
+                <i :class="'bi bi-' + (alert.type === 'success' ? 'check-circle' : 'exclamation-triangle')"></i>
+                {{ alert.message }}
+                <button type="button" class="btn-close float-end" @click="alert.show = false"></button>
+            </div>
 
-      <ul class="list-group mb-4">
-        <li class="list-group-item" v-for="a in alumnos" :key="a.ID">
-          {{ a.Nombre }} - {{ a.Email }} - {{ a.Teléfono }} | Clases: {{ a.Clases }} | Activo: {{ a.Activo }}
-        </li>
-      </ul>
+            <!-- Dashboard -->
+            <div v-if="currentView === 'dashboard'">
+                <h1 class="mb-4">Dashboard</h1>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card text-center dashboard-card">
+                            <div class="card-body">
+                                <i class="bi bi-people text-primary mb-3" style="font-size: 2rem;"></i>
+                                <h5 class="card-title">Alumnos Activos</h5>
+                                <p class="card-text display-4">{{ activeStudentsCount }}</p>
+                                <p>Total: {{ students.length }}</p>
+                                <button class="btn btn-sm btn-outline-primary" @click="currentView = 'students'">
+                                    Ver Alumnos
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-center dashboard-card">
+                            <div class="card-body">
+                                <i class="bi bi-book text-success mb-3" style="font-size: 2rem;"></i>
+                                <h5 class="card-title">Clases</h5>
+                                <p class="card-text display-4">{{ classes.length }}</p>
+                                <button class="btn btn-sm btn-outline-success" @click="currentView = 'classes'">
+                                    Ver Clases
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-center dashboard-card">
+                            <div class="card-body">
+                                <i class="bi bi-receipt text-danger mb-3" style="font-size: 2rem;"></i>
+                                <h5 class="card-title">Recibos Pendientes</h5>
+                                <p class="card-text display-4">{{ pendingInvoicesCount }}</p>
+                                <p>Total: {{ invoices.length }}</p>
+                                <button class="btn btn-sm btn-outline-danger" @click="currentView = 'invoices'">
+                                    Ver Recibos
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-      <h2>Gestión de Clases</h2>
-      <button class="btn btn-primary mb-3" @click="agregarClase">Agregar Clase</button>
-      <ul class="list-group mb-4">
-        <li class="list-group-item" v-for="c in clases" :key="c.ID">
-          {{ c.Nombre }} - {{ c.Descripción }} - {{ c.Precio }}€
-        </li>
-      </ul>
+                <!-- Resumen financiero -->
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Resumen Financiero</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3 row">
+                                    <label class="col-sm-8 col-form-label">Total Recibos Pendientes:</label>
+                                    <div class="col-sm-4">
+                                        <p class="form-control-plaintext text-right">{{ formatCurrency(totalPendingAmount) }}</p>
+                                    </div>
+                                </div>
+                                <div class="mb-3 row">
+                                    <label class="col-sm-8 col-form-label">Total Recibos Cobrados:</label>
+                                    <div class="col-sm-4">
+                                        <p class="form-control-plaintext text-right">{{ formatCurrency(totalPaidAmount) }}</p>
+                                    </div>
+                                </div>
+                                <div class="mb-3 row">
+                                    <label class="col-sm-8 col-form-label fw-bold">Total Facturación:</label>
+                                    <div class="col-sm-4">
+                                        <p class="form-control-plaintext text-right fw-bold">{{ formatCurrency(totalInvoicedAmount) }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Clases más Populares</h5>
+                            </div>
+                            <div class="card-body">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Clase</th>
+                                            <th>Alumnos</th>
+                                            <th>Ingreso Mensual</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="clase in popularClasses" :key="clase.id">
+                                            <td>{{ clase.name }}</td>
+                                            <td>{{ studentsPerClass(clase.id) }}</td>
+                                            <td>{{ formatCurrency(studentsPerClass(clase.id) * clase.price) }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-      <h2>Gestión de Recibos</h2>
-      <button class="btn btn-primary mb-3" @click="agregarRecibo">Generar Recibo</button>
-      <ul class="list-group mb-3">
-        <li class="list-group-item" v-for="r in recibos" :key="r.ID">
-          AlumnoID: {{ r.AlumnoID }} | {{ r.Concepto }} - {{ r.Importe }}€ - {{ r.Periodo }} - Pagado: {{ r.Pagado }}
-        </li>
-      </ul>
+            <!-- Alumnos -->
+            <div v-if="currentView === 'students'">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h1>Gestión de Alumnos</h1>
+                    <button class="btn btn-primary" @click="openStudentModal">
+                        <i class="bi bi-plus-circle me-2"></i>Nuevo Alumno
+                    </button>
+                </div>
 
-      <!-- 🔄 Botón de sincronización -->
-      <div class="text-end">
-        <button class="btn btn-outline-secondary btn-sm" @click="sincronizarTodo">
-          🔄 Sincronizar con Google Sheets
-        </button>
-      </div>
+                <!-- Buscador y filtros -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3 mb-md-0">
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="bi bi-search"></i>
+                                    </span>
+                                    <input type="text" class="form-control" placeholder="Buscar alumno..." v-model="studentSearch">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex">
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="checkbox" id="showActive" v-model="filters.showActive">
+                                        <label class="form-check-label" for="showActive">Activos</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="checkbox" id="showInactive" v-model="filters.showInactive">
+                                        <label class="form-check-label" for="showInactive">Inactivos</label>
+                                    </div>
+                                    <select class="form-select ms-auto" v-model="filters.classFilter">
+                                        <option value="">Todas las clases</option>
+                                        <option v-for="clase in classes" :key="clase.id" :value="clase.id">
+                                            {{ clase.name }}
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de alumnos -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Listado de Alumnos</h5>
+                    </div>
+                    <div class="card-body">
+                        <div v-if="filteredStudents.length === 0" class="alert alert-info">
+                            No se encontraron alumnos que coincidan con los criterios de búsqueda.
+                        </div>
+                        <div class="table-responsive">
+                            <table v-else class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Email</th>
+                                        <th>Teléfono</th>
+                                        <th>Clases</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="student in filteredStudents" :key="student.id" :class="{'inactive': !student.active}">
+                                        <td>{{ student.name }}</td>
+                                        <td>{{ student.email }}</td>
+                                        <td>{{ student.phone }}</td>
+                                        <td>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                <span v-for="classId in student.classes" :key="classId" 
+                                                    class="badge bg-info">
+                                                    {{ getClassName(classId) }}
+                                                </span>
+                                                <span v-if="student.classes.length === 0" class="text-muted fst-italic">
+                                                    Sin clases
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span :class="'badge ' + (student.active ? 'bg-success' : 'bg-secondary')">
+                                                {{ student.active ? 'Activo' : 'Inactivo' }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <button @click="editStudent(student)" class="btn btn-outline-primary" title="Editar">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button @click="toggleStudentStatus(student)" 
+                                                    :class="'btn ' + (student.active ? 'btn-outline-warning' : 'btn-outline-success')"
+                                                    :title="student.active ? 'Desactivar' : 'Activar'">
+                                                    <i :class="'bi ' + (student.active ? 'bi-person-dash' : 'bi-person-check')"></i>
+                                                </button>
+                                                <button @click="generateInvoice(student)" class="btn btn-outline-info" title="Generar Recibo">
+                                                    <i class="bi bi-receipt"></i>
+                                                </button>
+                                                <button @click="deleteStudentConfirm(student)" class="btn btn-outline-danger" title="Eliminar">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card-footer text-muted">
+                        Mostrando {{ filteredStudents.length }} de {{ students.length }} alumnos
+                    </div>
+                </div>
+            </div>
+
+            <!-- Clases -->
+            <div v-if="currentView === 'classes'">
+                <h1 class="mb-4">Gestión de Clases</h1>
+                <div class="row">
+                    <div class="col-md-5">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>{{ editingClass ? 'Editar Clase' : 'Nueva Clase' }}</h5>
+                            </div>
+                            <div class="card-body">
+                                <form @submit.prevent="saveClass">
+                                    <div class="mb-3">
+                                        <label class="form-label">Nombre de la Clase <span class="text-danger">*</span></label>
+                                        <input 
+                                            v-model="classForm.name" 
+                                            type="text" 
+                                            class="form-control" 
+                                            placeholder="Nombre de la Clase" 
+                                            required
+                                            :class="{'is-invalid': classErrors.name}"
+                                        >
+                                        <div v-if="classErrors.name" class="invalid-feedback">
+                                            {{ classErrors.name }}
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Precio Mensual <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <input 
+                                                v-model="classForm.price" 
+                                                type="number" 
+                                                step="0.01" 
+                                                class="form-control" 
+                                                placeholder="Precio Mensual" 
+                                                required
+                                                min="0"
+                                                :class="{'is-invalid': classErrors.price}"
+                                            >
+                                            <span class="input-group-text">€</span>
+                                            <div v-if="classErrors.price" class="invalid-feedback">
+                                                {{ classErrors.price }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Descripción (opcional)</label>
+                                        <textarea 
+                                            v-model="classForm.description" 
+                                            class="form-control" 
+                                            placeholder="Descripción de la clase"
+                                            rows="3"
+                                        ></textarea>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i :class="'bi ' + (editingClass ? 'bi-save' : 'bi-plus-circle') + ' me-2'"></i>
+                                            {{ editingClass ? 'Actualizar' : 'Añadir' }} Clase
+                                        </button>
+                                        <button v-if="editingClass" type="button" @click="cancelClassEdit" class="btn btn-secondary">
+                                            <i class="bi bi-x-circle me-2"></i>Cancelar
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-7">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h5>Listado de Clases</h5>
+                                    <div class="input-group" style="width: 250px;">
+                                        <span class="input-group-text">
+                                            <i class="bi bi-search"></i>
+                                        </span>
+                                        <input type="text" class="form-control" placeholder="Buscar clase..." v-model="classSearch">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div v-if="filteredClasses.length === 0" class="alert alert-info">
+                                    No se encontraron clases. Crea una nueva clase utilizando el formulario.
+                                </div>
+                                <table v-else class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Nombre</th>
+                                            <th>Precio</th>
+                                            <th>Alumnos</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="clase in filteredClasses" :key="clase.id">
+                                            <td>
+                                                {{ clase.name }}
+                                                <small v-if="clase.description" class="d-block text-muted">
+                                                    {{ clase.description }}
+                                                </small>
+                                            </td>
+                                            <td>{{ formatCurrency(clase.price) }}</td>
+                                            <td>
+                                                {{ studentsPerClass(clase.id) }}
+                                                <button v-if="studentsPerClass(clase.id) > 0" 
+                                                    @click="viewClassStudents(clase)" 
+                                                    class="btn btn-sm btn-link">
+                                                    Ver
+                                                </button>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <button 
+                                                        @click="editClass(clase)" 
+                                                        class="btn btn-outline-primary"
+                                                        title="Editar Clase"
+                                                    >
+                                                        <i class="bi bi-pencil"></i>
+                                                    </button>
+                                                    <button 
+                                                        @click="deleteClassConfirm(clase)" 
+                                                        class="btn btn-outline-danger"
+                                                        title="Eliminar Clase"
+                                                        :disabled="studentsPerClass(clase.id) > 0"
+                                                    >
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recibos -->
+            <div v-if="currentView === 'invoices'">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h1>Gestión de Recibos</h1>
+                    <button class="btn btn-primary" @click="openInvoiceModal">
+                        <i class="bi bi-plus-circle me-2"></i>Nuevo Recibo
+                    </button>
+                </div>
+
+                <!-- Buscador y filtros -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3 mb-md-0">
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="bi bi-search"></i>
+                                    </span>
+                                    <input type="text" class="form-control" placeholder="Buscar por alumno..." v-model="invoiceSearch">
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3 mb-md-0">
+                                <select class="form-select" v-model="invoiceFilters.status">
+                                    <option value="all">Todos los estados</option>
+                                    <option value="paid">Pagados</option>
+                                    <option value="pending">Pendientes</option>
+                                </select>
+                            </div>
+                            <div class="col-md-5">
+                                <div class="input-group">
+                                    <span class="input-group-text">Periodo</span>
+                                    <input type="month" class="form-control" v-model="invoiceFilters.fromMonth">
+                                    <span class="input-group-text">a</span>
+                                    <input type="month" class="form-control" v-model="invoiceFilters.toMonth">
+                                    <button type="button" class="btn btn-outline-secondary" @click="clearInvoiceFilters">
+                                        <i class="bi bi-x-circle"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de recibos -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5>Listado de Recibos</h5>
+                            <div>
+                                <button class="btn btn-sm btn-outline-success me-2" @click="generateMonthlyInvoices">
+                                    <i class="bi bi-receipt-cutoff me-1"></i> Generar Recibos Mensuales
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary" @click="exportInvoicesToCSV">
+                                    <i class="bi bi-filetype-csv me-1"></i> Exportar a CSV
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div v-if="filteredInvoices.length === 0" class="alert alert-info">
+                            No se encontraron recibos que coincidan con los criterios de búsqueda.
+                        </div>
+                        <div class="table-responsive">
+                            <table v-else class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Nº Recibo</th>
+                                        <th>Alumno</th>
+                                        <th>Concepto</th>
+                                        <th>Fecha</th>
+                                        <th>Importe</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="invoice in filteredInvoices" :key="invoice.id">
+                                        <td>{{ formatInvoiceNumber(invoice.id) }}</td>
+                                        <td>{{ getStudentName(invoice.studentId) }}</td>
+                                        <td>
+                                            {{ invoice.concept }}
+                                            <span v-if="invoice.period" class="badge bg-secondary ms-1">
+                                                {{ formatPeriod(invoice.period) }}
+                                            </span>
+                                        </td>
+                                        <td>{{ formatDate(invoice.createdAt) }}</td>
+                                        <td>
+                                            <span :class="invoice.discount ? 'text-decoration-line-through text-muted' : ''">
+                                                {{ formatCurrency(invoice.amount) }}
+                                            </span>
+                                            <span v-if="invoice.discount" class="ms-2 fw-bold">
+                                                {{ formatCurrency(invoice.finalAmount) }}
+                                                <small class="text-success">(-{{ invoice.discount }}%)</small>
+                                            </span>
+                                            <span v-else>
+                                                {{ formatCurrency(invoice.finalAmount) }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span :class="'badge ' + (invoice.paid ? 'bg-success' : 'bg-warning')">
+                                                {{ invoice.paid ? 'Pagado' : 'Pendiente' }}
+                                            </span>
+                                            <small v-if="invoice.paid && invoice.paidAt" class="d-block text-muted">
+                                                {{ formatDate(invoice.paidAt) }}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <button 
+                                                    v-if="!invoice.paid" 
+                                                    @click="markAsPaid(invoice)" 
+                                                    class="btn btn-outline-success" 
+                                                    title="Marcar como Pagado"
+                                                >
+                                                    <i class="bi bi-check-circle"></i>
+                                                </button>
+                                                <button 
+                                                    v-else 
+                                                    @click="markAsPending(invoice)" 
+                                                    class="btn btn-outline-warning" 
+                                                    title="Marcar como Pendiente"
+                                                >
+                                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                                </button>
+                                                <button @click="editInvoice(invoice)" class="btn btn-outline-primary" title="Editar">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button @click="viewInvoice(invoice)" class="btn btn-outline-info" title="Ver Detalles">
+                                                    <i class="bi bi-eye"></i>
+                                                </button>
+                                                <button @click="deleteInvoiceConfirm(invoice)" class="btn btn-outline-danger" title="Eliminar">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="row">
+                            <div class="col-md-6">
+                                Mostrando {{ filteredInvoices.length }} de {{ invoices.length }} recibos
+                            </div>
+                            <div class="col-md-6 text-md-end">
+                                <span class="me-3">Total Pendiente: <strong>{{ formatCurrency(filteredPendingAmount) }}</strong></span>
+                                <span>Total Pagado: <strong>{{ formatCurrency(filteredPaidAmount) }}</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+<!-- Modales para la aplicación -->
+
+        <!-- Modal de Alumno -->
+        <div class="modal fade" id="studentModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">{{ editingStudent ? 'Editar Alumno' : 'Nuevo Alumno' }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form @submit.prevent="saveStudent">
+                            <!-- Datos Personales -->
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Datos Personales</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Nombre Completo <span class="text-danger">*</span></label>
+                                            <input 
+                                                v-model="studentForm.name" 
+                                                type="text" 
+                                                class="form-control" 
+                                                required
+                                                :class="{'is-invalid': studentErrors.name}"
+                                            >
+                                            <div v-if="studentErrors.name" class="invalid-feedback">
+                                                {{ studentErrors.name }}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Email</label>
+                                            <input 
+                                                v-model="studentForm.email" 
+                                                type="email" 
+                                                class="form-control"
+                                                :class="{'is-invalid': studentErrors.email}"
+                                            >
+                                            <div v-if="studentErrors.email" class="invalid-feedback">
+                                                {{ studentErrors.email }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Teléfono <span class="text-danger">*</span></label>
+                                            <input 
+                                                v-model="studentForm.phone" 
+                                                type="tel" 
+                                                class="form-control" 
+                                                required
+                                                :class="{'is-invalid': studentErrors.phone}"
+                                            >
+                                            <div v-if="studentErrors.phone" class="invalid-feedback">
+                                                {{ studentErrors.phone }}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Fecha de Nacimiento</label>
+                                            <input 
+                                                v-model="studentForm.birthdate" 
+                                                type="date" 
+                                                class="form-control"
+                                            >
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Dirección</label>
+                                        <textarea 
+                                            v-model="studentForm.address" 
+                                            class="form-control" 
+                                            rows="2"
+                                        ></textarea>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input 
+                                            v-model="studentForm.active" 
+                                            class="form-check-input" 
+                                            type="checkbox" 
+                                            id="activeSwitch"
+                                        >
+                                        <label class="form-check-label" for="activeSwitch">Alumno Activo</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Clases Inscritas -->
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Clases Inscritas</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div v-if="classes.length === 0" class="alert alert-warning">
+                                        No hay clases disponibles. Por favor, cree clases primero.
+                                    </div>
+                                    <div v-else>
+                                        <div class="mb-3">
+                                            <div class="form-check" v-for="clase in classes" :key="clase.id">
+                                                <input 
+                                                    :id="'class-' + clase.id" 
+                                                    v-model="studentForm.classes" 
+                                                    :value="clase.id" 
+                                                    class="form-check-input" 
+                                                    type="checkbox"
+                                                >
+                                                <label :for="'class-' + clase.id" class="form-check-label d-flex justify-content-between">
+                                                    <span>{{ clase.name }}</span>
+                                                    <span class="text-muted">{{ formatCurrency(clase.price) }}/mes</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div v-if="calculateTotalMonthly() > 0" class="alert alert-info">
+                                            <strong>Cuota mensual total:</strong> {{ formatCurrency(calculateTotalMonthly()) }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Notas adicionales -->
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Información Adicional</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Notas</label>
+                                        <textarea 
+                                            v-model="studentForm.notes" 
+                                            class="form-control" 
+                                            rows="3"
+                                            placeholder="Información adicional sobre el alumno..."
+                                        ></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @click="closeStudentModal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" @click="saveStudent">
+                            {{ editingStudent ? 'Actualizar Alumno' : 'Guardar Alumno' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Recibo -->
+        <div class="modal fade" id="invoiceModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">{{ editingInvoice ? 'Editar Recibo' : 'Nuevo Recibo' }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form @submit.prevent="saveInvoice">
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Información Básica</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Alumno <span class="text-danger">*</span></label>
+                                        <select 
+                                            v-model="invoiceForm.studentId" 
+                                            class="form-select"
+                                            required
+                                            :class="{'is-invalid': invoiceErrors.studentId}"
+                                            :disabled="editingInvoice"
+                                        >
+                                            <option value="" disabled>Seleccione un alumno</option>
+                                            <option 
+                                                v-for="student in activeStudents" 
+                                                :key="student.id" 
+                                                :value="student.id"
+                                            >
+                                                {{ student.name }}
+                                            </option>
+                                        </select>
+                                        <div v-if="invoiceErrors.studentId" class="invalid-feedback">
+                                            {{ invoiceErrors.studentId }}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Concepto <span class="text-danger">*</span></label>
+                                        <input 
+                                            v-model="invoiceForm.concept" 
+                                            type="text" 
+                                            class="form-control"
+                                            required
+                                            :class="{'is-invalid': invoiceErrors.concept}"
+                                        >
+                                        <div v-if="invoiceErrors.concept" class="invalid-feedback">
+                                            {{ invoiceErrors.concept }}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Importe <span class="text-danger">*</span></label>
+                                            <div class="input-group">
+                                                <input 
+                                                    v-model="invoiceForm.amount" 
+                                                    type="number" 
+                                                    step="0.01" 
+                                                    class="form-control"
+                                                    required
+                                                    min="0"
+                                                    :class="{'is-invalid': invoiceErrors.amount}"
+                                                >
+                                                <span class="input-group-text">€</span>
+                                                <div v-if="invoiceErrors.amount" class="invalid-feedback">
+                                                    {{ invoiceErrors.amount }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Descuento (%)</label>
+                                            <div class="input-group">
+                                                <input 
+                                                    v-model="invoiceForm.discount" 
+                                                    type="number" 
+                                                    step="1" 
+                                                    class="form-control"
+                                                    min="0"
+                                                    max="100"
+                                                >
+                                                <span class="input-group-text">%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Periodo (opcional)</label>
+                                        <input 
+                                            v-model="invoiceForm.period" 
+                                            type="month" 
+                                            class="form-control"
+                                        >
+                                        <div class="form-text">
+                                            Especifique el mes y año al que corresponde el recibo (ej: cuota mensual)
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Detalles de Pago</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-check form-switch mb-3">
+                                        <input 
+                                            v-model="invoiceForm.paid" 
+                                            class="form-check-input" 
+                                            type="checkbox" 
+                                            id="paidSwitch"
+                                        >
+                                        <label class="form-check-label" for="paidSwitch">
+                                            Recibo Pagado
+                                        </label>
+                                    </div>
+                                    
+                                    <div v-if="invoiceForm.paid" class="mb-3">
+                                        <label class="form-label">Fecha de Pago</label>
+                                        <input 
+                                            v-model="invoiceForm.paidAt" 
+                                            type="date" 
+                                            class="form-control"
+                                        >
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Notas</label>
+                                        <textarea 
+                                            v-model="invoiceForm.notes" 
+                                            class="form-control" 
+                                            rows="2"
+                                            placeholder="Notas adicionales sobre el recibo..."
+                                        ></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div v-if="calculateFinalAmount() > 0" class="alert alert-info">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <div v-if="invoiceForm.discount > 0">
+                                            <strong>Subtotal:</strong> {{ formatCurrency(invoiceForm.amount) }}
+                                            <div>
+                                                <strong>Descuento ({{ invoiceForm.discount }}%):</strong> 
+                                                -{{ formatCurrency(calculateDiscountAmount()) }}
+                                            </div>
+                                        </div>
+                                        <strong>Importe Final:</strong> {{ formatCurrency(calculateFinalAmount()) }}
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @click="closeInvoiceModal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" @click="saveInvoice">
+                            {{ editingInvoice ? 'Actualizar Recibo' : 'Guardar Recibo' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Detalles de Recibo -->
+        <div class="modal fade" id="invoiceDetailsModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Detalles del Recibo</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" v-if="selectedInvoice">
+                        <div class="card">
+                            <div class="card-header bg-light">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">Recibo Nº {{ formatInvoiceNumber(selectedInvoice.id) }}</h6>
+                                    <span :class="'badge ' + (selectedInvoice.paid ? 'bg-success' : 'bg-warning')">
+                                        {{ selectedInvoice.paid ? 'PAGADO' : 'PENDIENTE' }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row mb-3">
+                                    <div class="col-sm-4 fw-bold">Alumno:</div>
+                                    <div class="col-sm-8">{{ getStudentName(selectedInvoice.studentId) }}</div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-sm-4 fw-bold">Concepto:</div>
+                                    <div class="col-sm-8">{{ selectedInvoice.concept }}</div>
+                                </div>
+                                <div v-if="selectedInvoice.period" class="row mb-3">
+                                    <div class="col-sm-4 fw-bold">Periodo:</div>
+                                    <div class="col-sm-8">{{ formatPeriod(selectedInvoice.period) }}</div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-sm-4 fw-bold">Importe:</div>
+                                    <div class="col-sm-8">
+                                        <span :class="selectedInvoice.discount ? 'text-decoration-line-through text-muted' : ''">
+                                            {{ formatCurrency(selectedInvoice.amount) }}
+                                        </span>
+                                        <span v-if="selectedInvoice.discount" class="ms-2 fw-bold">
+                                            {{ formatCurrency(selectedInvoice.finalAmount) }}
+                                            <small class="text-success">(-{{ selectedInvoice.discount }}%)</small>
+                                        </span>
+                                        <span v-else>
+                                            {{ formatCurrency(selectedInvoice.finalAmount) }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-sm-4 fw-bold">Fecha Emisión:</div>
+                                    <div class="col-sm-8">{{ formatDate(selectedInvoice.createdAt) }}</div>
+                                </div>
+                                <div v-if="selectedInvoice.paid" class="row mb-3">
+                                    <div class="col-sm-4 fw-bold">Fecha Pago:</div>
+                                    <div class="col-sm-8">{{ formatDate(selectedInvoice.paidAt) }}</div>
+                                </div>
+                                <div v-if="selectedInvoice.notes" class="row mb-3">
+                                    <div class="col-sm-4 fw-bold">Notas:</div>
+                                    <div class="col-sm-8">{{ selectedInvoice.notes }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @click="closeInvoiceDetailsModal">Cerrar</button>
+                        <button 
+                            v-if="selectedInvoice && !selectedInvoice.paid" 
+                            type="button" 
+                            class="btn btn-success" 
+                            @click="markAsPaid(selectedInvoice)"
+                        >
+                            Marcar como Pagado
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Confirmación de Eliminación -->
+        <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-sm">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">Confirmar Eliminación</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>{{ deleteConfirmMessage }}</p>
+                        <div class="alert alert-warning">
+                            Esta acción no se puede deshacer.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @click="closeDeleteModal">Cancelar</button>
+                        <button type="button" class="btn btn-danger" @click="confirmDelete">
+                            Eliminar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal para Alumnos de una Clase -->
+        <div class="modal fade" id="classStudentsModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" v-if="selectedClass">Alumnos en {{ selectedClass.name }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" v-if="selectedClass">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Teléfono</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="student in studentsInSelectedClass" :key="student.id">
+                                    <td>{{ student.name }}</td>
+                                    <td>{{ student.phone }}</td>
+                                    <td>
+                                        <span :class="'badge ' + (student.active ? 'bg-success' : 'bg-secondary')">
+                                            {{ student.active ? 'Activo' : 'Inactivo' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button 
+                                            @click="editStudent(student); closeClassStudentsModal()" 
+                                            class="btn btn-sm btn-outline-primary" 
+                                            title="Editar Alumno"
+                                        >
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr v-if="studentsInSelectedClass.length === 0">
+                                    <td colspan="4" class="text-center py-3">
+                                        No hay alumnos inscritos en esta clase.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @click="closeClassStudentsModal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <script>
-    const { createApp, ref, onMounted } = Vue;
-    const API_URL = "https://script.google.com/macros/s/AKfycbyf7kSO53Grb5ta-XEYQX5Ul6IOIYfuzLqrEsA-Fc9rO3FeGUxMDmBDNX8jrQCodW1y/exec";
+    <script>
+    const { createApp, ref, computed, onMounted, watch } = Vue
+    
+    // Crear variables para los modales fuera del componente
+    let studentModalInstance = null;
+    let invoiceModalInstance = null;
+    let invoiceDetailsModalInstance = null;
+    let deleteModalInstance = null;
+    let classStudentsModalInstance = null;
 
     createApp({
-      setup() {
-        const alumnos = ref([]);
-        const clases = ref([]);
-        const recibos = ref([]);
+        setup() {
+            // Estado de la vista
+            const currentView = ref('dashboard')
 
-        const fetchData = async (sheet, refVar) => {
-          try {
-            const res = await fetch(`${API_URL}?sheet=${sheet}`);
-            const data = await res.json();
-            refVar.value = data;
-          } catch (error) {
-            console.error("Error al cargar", sheet, error);
-          }
-        };
+            // Colecciones principales
+            const students = ref([])
+            const classes = ref([])
+            const invoices = ref([])
 
-        const postData = async (sheet, dataObj, refVar) => {
-          try {
-            await fetch(API_URL, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ sheet: sheet, data: dataObj })
-            });
-            fetchData(sheet, refVar);
-          } catch (error) {
-            console.error("Error al guardar en", sheet, error);
-          }
-        };
+            // Alerta para operaciones
+            const alert = ref({
+                show: false,
+                type: 'success',
+                message: ''
+            })
 
-        const sincronizarTodo = () => {
-          fetchData("Alumnos", alumnos);
-          fetchData("Clases", clases);
-          fetchData("Recibos", recibos);
-        };
+            // Mostrar alerta
+            const showAlert = (type, message) => {
+                alert.value = {
+                    show: true,
+                    type,
+                    message
+                }
+                // Auto ocultar después de 3 segundos
+                setTimeout(() => {
+                    alert.value.show = false
+                }, 3000)
+            }
 
-        onMounted(() => {
-          sincronizarTodo();
-        });
+            // Cargar datos desde localStorage
+            const loadData = () => {
+                try {
+                    students.value = JSON.parse(localStorage.getItem('students') || '[]')
+                    classes.value = JSON.parse(localStorage.getItem('classes') || '[]')
+                    invoices.value = JSON.parse(localStorage.getItem('invoices') || '[]')
+                } catch (error) {
+                    console.error('Error al cargar datos:', error)
+                    showAlert('danger', 'Error al cargar datos: ' + error.message)
+                }
+            }
 
-        return {
-          alumnos,
-          clases,
-          recibos,
-          sincronizarTodo,
-          agregarAlumno: () => postData("Alumnos", {
-            ID: Date.now(),
-            Nombre: "Nuevo Alumno",
-            Email: "nuevo@correo.com",
-            Teléfono: "000000000",
-            Clases: "",
-            Activo: true
-          }, alumnos),
-          agregarClase: () => postData("Clases", {
-            ID: Date.now(),
-            Nombre: "Nueva Clase",
-            Precio: 30,
-            Descripción: "Descripción"
-          }, clases),
-          agregarRecibo: () => postData("Recibos", {
-            ID: Date.now(),
-            AlumnoID: "123",
-            Concepto: "Cuota mensual",
-            Importe: 35,
-            Periodo: "2025-03",
-            Pagado: false,
-            FechaPago: ""
-          }, recibos)
-        };
-      }
-    }).mount("#app");
-  </script>
+            // Guardar datos en localStorage
+            const saveData = () => {
+                try {
+                    localStorage.setItem('students', JSON.stringify(students.value))
+                    localStorage.setItem('classes', JSON.stringify(classes.value))
+                    localStorage.setItem('invoices', JSON.stringify(invoices.value))
+                } catch (error) {
+                    console.error('Error al guardar datos:', error)
+                    showAlert('danger', 'Error al guardar datos: ' + error.message)
+                }
+            }
+
+            // Exportar todos los datos
+            const exportData = () => {
+                try {
+                    const data = {
+                        students: students.value,
+                        classes: classes.value,
+                        invoices: invoices.value,
+                        exportDate: new Date().toISOString()
+                    }
+                    const dataStr = JSON.stringify(data, null, 2)
+                    const blob = new Blob([dataStr], { type: 'application/json' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `gestion-escuela-backup-${new Date().toISOString().split('T')[0]}.json`
+                    document.body.appendChild(a)
+                    a.click()
+                    document.body.removeChild(a)
+                    URL.revokeObjectURL(url)
+                    showAlert('success', 'Datos exportados correctamente')
+                } catch (error) {
+                    console.error('Error al exportar datos:', error)
+                    showAlert('danger', 'Error al exportar datos: ' + error.message)
+                }
+            }
+
+            // =========================================================
+            // Gestión de CLASES
+            // =========================================================
+
+            // Formulario de clase y estado de edición
+            const classForm = ref({
+                name: '',
+                price: '',
+                description: ''
+            })
+
+            // Errores de validación para clases
+            const classErrors = ref({
+                name: '',
+                price: ''
+            })
+
+            // Estado de edición
+            const editingClass = ref(null)
+
+            // Buscador de clases
+            const classSearch = ref('')
+
+            // Clases filtradas
+            const filteredClasses = computed(() => {
+                if (!classSearch.value) return classes.value
+                const search = classSearch.value.toLowerCase()
+                return classes.value.filter(c => 
+                    c.name.toLowerCase().includes(search) ||
+                    c.description?.toLowerCase().includes(search)
+                )
+            })
+
+            // Reset formulario de clase
+            const resetClassForm = () => {
+                classForm.value = {
+                    name: '',
+                    price: '',
+                    description: ''
+                }
+                classErrors.value = {
+                    name: '',
+                    price: ''
+                }
+                editingClass.value = null
+            }
+
+            // Validar formulario de clase
+            const validateClassForm = () => {
+                let isValid = true
+                classErrors.value = {
+                    name: '',
+                    price: ''
+                }
+
+                // Validar nombre
+                if (!classForm.value.name.trim()) {
+                    classErrors.value.name = 'El nombre de la clase es obligatorio'
+                    isValid = false
+                } else {
+                    // Verificar nombre único
+                    const existingClass = classes.value.find(c => 
+                        c.name.toLowerCase().trim() === classForm.value.name.toLowerCase().trim() &&
+                        (!editingClass.value || c.id !== editingClass.value.id)
+                    )
+                    if (existingClass) {
+                        classErrors.value.name = 'Ya existe una clase con este nombre'
+                        isValid = false
+                    }
+                }
+
+                // Validar precio
+                if (!classForm.value.price) {
+                    classErrors.value.price = 'El precio es obligatorio'
+                    isValid = false
+                } else if (parseFloat(classForm.value.price) <= 0) {
+                    classErrors.value.price = 'El precio debe ser mayor que 0'
+                    isValid = false
+                }
+
+                return isValid
+            }
+
+            // Guardar clase (añadir o actualizar)
+            const saveClass = () => {
+                if (!validateClassForm()) return
+
+                const classData = {
+                    name: classForm.value.name.trim(),
+                    price: parseFloat(classForm.value.price),
+                    description: classForm.value.description?.trim() || ''
+                }
+
+                if (editingClass.value) {
+                    // Actualizar clase existente
+                    const index = classes.value.findIndex(c => c.id === editingClass.value.id)
+                    if (index !== -1) {
+                        const updatedClass = {
+                            ...editingClass.value,
+                            ...classData,
+                            updatedAt: new Date().toISOString()
+                        }
+                        classes.value[index] = updatedClass
+                        showAlert('success', `Clase "${updatedClass.name}" actualizada correctamente`)
+                    }
+                } else {
+                    // Crear nueva clase
+                    const newClass = {
+                        id: Date.now() + Math.random(),
+                        ...classData,
+                        createdAt: new Date().toISOString()
+                    }
+                    classes.value.push(newClass)
+                    showAlert('success', `Clase "${newClass.name}" creada correctamente`)
+                }
+
+                saveData()
+                resetClassForm()
+            }
+
+            // Editar clase
+            const editClass = (clase) => {
+                editingClass.value = { ...clase }
+                classForm.value = {
+                    name: clase.name,
+                    price: clase.price,
+                    description: clase.description || ''
+                }
+            }
+
+            // Cancelar edición de clase
+            const cancelClassEdit = () => {
+                resetClassForm()
+            }
+
+            // Eliminar clase
+            const deleteClassConfirm = (clase) => {
+                const enrolledStudents = students.value.filter(s => 
+                    s.classes.includes(clase.id)
+                )
+
+                if (enrolledStudents.length > 0) {
+                    showAlert('warning', `No se puede eliminar la clase "${clase.name}" porque tiene alumnos inscritos`)
+                    return
+                }
+
+                deleteItem.value = {
+                    type: 'class',
+                    item: clase,
+                    message: `¿Estás seguro de eliminar la clase "${clase.name}"?`
+                }
+                deleteConfirmMessage.value = `¿Estás seguro de eliminar la clase "${clase.name}"?`
+                openDeleteModal();
+            }
+
+            // =========================================================
+            // Gestión de ALUMNOS
+            // =========================================================
+
+            // Buscador y filtros de alumnos
+            const studentSearch = ref('')
+            const filters = ref({
+                showActive: true,
+                showInactive: true,
+                classFilter: ''
+            })
+
+            // Formulario de alumno y estado de edición
+            const studentForm = ref({
+                name: '',
+                email: '',
+                phone: '',
+                birthdate: '',
+                address: '',
+                active: true,
+                classes: [],
+                notes: ''
+            })
+
+            // Errores de validación para alumnos
+            const studentErrors = ref({
+                name: '',
+                email: '',
+                phone: ''
+            })
+
+            // Estado de edición de alumno
+            const editingStudent = ref(null)
+
+            // Alumnos filtrados
+            const filteredStudents = computed(() => {
+                let result = students.value
+
+                // Filtrar por texto de búsqueda
+                if (studentSearch.value) {
+                    const search = studentSearch.value.toLowerCase()
+                    result = result.filter(s => 
+                        s.name.toLowerCase().includes(search) ||
+                        s.email?.toLowerCase().includes(search) ||
+                        s.phone?.includes(search)
+                    )
+                }
+
+                // Filtrar por estado
+                if (!filters.value.showActive && !filters.value.showInactive) {
+                    return [] // No mostrar nada si ambos están desactivados
+                } else if (!filters.value.showActive) {
+                    result = result.filter(s => !s.active)
+                } else if (!filters.value.showInactive) {
+                    result = result.filter(s => s.active)
+                }
+
+                // Filtrar por clase
+                if (filters.value.classFilter) {
+                    result = result.filter(s => 
+                        s.classes.includes(filters.value.classFilter)
+                    )
+                }
+
+                return result
+            })
+
+            // Reset formulario de alumno
+            const resetStudentForm = () => {
+                studentForm.value = {
+                    name: '',
+                    email: '',
+                    phone: '',
+                    birthdate: '',
+                    address: '',
+                    active: true,
+                    classes: [],
+                    notes: ''
+                }
+                studentErrors.value = {
+                    name: '',
+                    email: '',
+                    phone: ''
+                }
+                editingStudent.value = null
+            }
+
+            // Validar formulario de alumno
+            const validateStudentForm = () => {
+                let isValid = true
+                studentErrors.value = {
+                    name: '',
+                    email: '',
+                    phone: ''
+                }
+
+                // Validar nombre
+                if (!studentForm.value.name.trim()) {
+                    studentErrors.value.name = 'El nombre es obligatorio'
+                    isValid = false
+                }
+
+                // Validar email si está presente
+                if (studentForm.value.email && !validateEmail(studentForm.value.email)) {
+                    studentErrors.value.email = 'El email no es válido'
+                    isValid = false
+                }
+
+                // Validar teléfono
+                if (!studentForm.value.phone) {
+                    studentErrors.value.phone = 'El teléfono es obligatorio'
+                    isValid = false
+                }
+
+                return isValid
+            }
+
+            // Validar email
+            const validateEmail = (email) => {
+                const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+                return re.test(email)
+            }
+
+            // Abrir modal de estudiante
+            const openStudentModal = () => {
+                resetStudentForm();
+                if (!studentModalInstance) {
+                    studentModalInstance = new bootstrap.Modal(document.getElementById('studentModal'));
+                }
+                studentModalInstance.show();
+            }
+
+            // Cerrar modal de estudiante
+            const closeStudentModal = () => {
+                if (studentModalInstance) {
+                    studentModalInstance.hide();
+                }
+            }
+
+            // Guardar alumno (añadir o actualizar)
+            const saveStudent = () => {
+                if (!validateStudentForm()) return
+
+                const studentData = {
+                    name: studentForm.value.name.trim(),
+                    email: studentForm.value.email?.trim() || '',
+                    phone: studentForm.value.phone.trim(),
+                    birthdate: studentForm.value.birthdate || '',
+                    address: studentForm.value.address?.trim() || '',
+                    active: studentForm.value.active,
+                    classes: [...studentForm.value.classes],
+                    notes: studentForm.value.notes?.trim() || ''
+                }
+
+                if (editingStudent.value) {
+                    // Actualizar alumno existente
+                    const index = students.value.findIndex(s => s.id === editingStudent.value.id)
+                    if (index !== -1) {
+                        const updatedStudent = {
+                            ...editingStudent.value,
+                            ...studentData,
+                            updatedAt: new Date().toISOString()
+                        }
+                        students.value[index] = updatedStudent
+                        showAlert('success', `Alumno "${updatedStudent.name}" actualizado correctamente`)
+                    }
+                } else {
+                    // Crear nuevo alumno
+                    const newStudent = {
+                        id: Date.now() + Math.random(),
+                        ...studentData,
+                        createdAt: new Date().toISOString()
+                    }
+                    students.value.push(newStudent)
+                    showAlert('success', `Alumno "${newStudent.name}" creado correctamente`)
+                }
+
+                saveData()
+                closeStudentModal();
+                resetStudentForm()
+            }
+
+            // Editar alumno
+            const editStudent = (student) => {
+                editingStudent.value = { ...student }
+                studentForm.value = {
+                    name: student.name,
+                    email: student.email || '',
+                    phone: student.phone || '',
+                    birthdate: student.birthdate || '',
+                    address: student.address || '',
+                    active: student.active,
+                    classes: [...student.classes],
+                    notes: student.notes || ''
+                }
+                openStudentModal();
+            }
+
+            // Cambiar estado de alumno (activar/desactivar)
+            const toggleStudentStatus = (student) => {
+                const index = students.value.findIndex(s => s.id === student.id)
+                if (index !== -1) {
+                    const updatedStudent = { 
+                        ...student, 
+                        active: !student.active,
+                        updatedAt: new Date().toISOString()
+                    }
+                    students.value[index] = updatedStudent
+                    saveData()
+                    showAlert('success', `Alumno "${student.name}" ${updatedStudent.active ? 'activado' : 'desactivado'} correctamente`)
+                }
+            }
+
+            // Eliminar alumno
+            const deleteStudentConfirm = (student) => {
+                // Verificar si tiene recibos asociados
+                const studentInvoices = invoices.value.filter(i => i.studentId === student.id)
+                
+                deleteItem.value = {
+                    type: 'student',
+                    item: student,
+                    message: `¿Estás seguro de eliminar al alumno "${student.name}"?` +
+                           (studentInvoices.length > 0 ? ` También se eliminarán ${studentInvoices.length} recibos asociados.` : '')
+                }
+                deleteConfirmMessage.value = deleteItem.value.message
+                openDeleteModal();
+            }
+
+            // Calcular total mensual por clases seleccionadas
+            const calculateTotalMonthly = () => {
+                return studentForm.value.classes.reduce((total, classId) => {
+                    const classItem = classes.value.find(c => c.id === classId)
+                    return total + (classItem ? classItem.price : 0)
+                }, 0)
+            }
+
+            // =========================================================
+            // Gestión de RECIBOS
+            // =========================================================
+
+            // Buscador y filtros de recibos
+            const invoiceSearch = ref('')
+            const invoiceFilters = ref({
+                status: 'all',
+                fromMonth: '',
+                toMonth: ''
+            })
+
+            // Formulario de recibo y estado de edición
+            const invoiceForm = ref({
+                studentId: '',
+                concept: '',
+                amount: '',
+                discount: 0,
+                period: '',
+                paid: false,
+                paidAt: '',
+                notes: ''
+            })
+
+            // Errores de validación para recibos
+            const invoiceErrors = ref({
+                studentId: '',
+                concept: '',
+                amount: ''
+            })
+
+            // Estado de edición de recibo
+            const editingInvoice = ref(null)
+            const selectedInvoice = ref(null)
+
+            // Limpiar filtros de recibos
+            const clearInvoiceFilters = () => {
+                invoiceFilters.value = {
+                    status: 'all',
+                    fromMonth: '',
+                    toMonth: ''
+                }
+                invoiceSearch.value = ''
+            }
+
+            // Reset formulario de recibo
+            const resetInvoiceForm = () => {
+                invoiceForm.value = {
+                    studentId: '',
+                    concept: '',
+                    amount: '',
+                    discount: 0,
+                    period: new Date().toISOString().substring(0, 7), // Mes actual
+                    paid: false,
+                    paidAt: '',
+                    notes: ''
+                }
+                invoiceErrors.value = {
+                    studentId: '',
+                    concept: '',
+                    amount: ''
+                }
+                editingInvoice.value = null
+            }
+
+            // Abrir modal de recibo
+            const openInvoiceModal = () => {
+                resetInvoiceForm();
+                if (!invoiceModalInstance) {
+                    invoiceModalInstance = new bootstrap.Modal(document.getElementById('invoiceModal'));
+                }
+                invoiceModalInstance.show();
+            }
+
+            // Cerrar modal de recibo
+            const closeInvoiceModal = () => {
+                if (invoiceModalInstance) {
+                    invoiceModalInstance.hide();
+                }
+            }
+
+            // Calcular importe con descuento
+            const calculateDiscountAmount = () => {
+                if (!invoiceForm.value.amount) return 0
+                const amount = parseFloat(invoiceForm.value.amount)
+                const discount = parseFloat(invoiceForm.value.discount || 0)
+                return (amount * discount) / 100
+            }
+
+            const calculateFinalAmount = () => {
+                if (!invoiceForm.value.amount) return 0
+                const amount = parseFloat(invoiceForm.value.amount)
+                const discountAmount = calculateDiscountAmount()
+                return amount - discountAmount
+            }
+
+            // Validar formulario de recibo
+            const validateInvoiceForm = () => {
+                let isValid = true
+                invoiceErrors.value = {
+                    studentId: '',
+                    concept: '',
+                    amount: ''
+                }
+
+                // Validar estudiante
+                if (!invoiceForm.value.studentId) {
+                    invoiceErrors.value.studentId = 'Debe seleccionar un alumno'
+                    isValid = false
+                }
+
+                // Validar concepto
+                if (!invoiceForm.value.concept.trim()) {
+                    invoiceErrors.value.concept = 'El concepto es obligatorio'
+                    isValid = false
+                }
+
+                // Validar importe
+                if (!invoiceForm.value.amount) {
+                    invoiceErrors.value.amount = 'El importe es obligatorio'
+                    isValid = false
+                } else if (parseFloat(invoiceForm.value.amount) <= 0) {
+                    invoiceErrors.value.amount = 'El importe debe ser mayor que 0'
+                    isValid = false
+                }
+
+                return isValid
+            }
+
+            // Recibos filtrados
+            const filteredInvoices = computed(() => {
+                let result = invoices.value
+
+                // Filtrar por texto de búsqueda (nombre de alumno)
+                if (invoiceSearch.value) {
+                    const search = invoiceSearch.value.toLowerCase()
+                    result = result.filter(invoice => {
+                        const student = students.value.find(s => s.id === invoice.studentId)
+                        return student && student.name.toLowerCase().includes(search)
+                    })
+                }
+
+                // Filtrar por estado
+                if (invoiceFilters.value.status === 'paid') {
+                    result = result.filter(i => i.paid)
+                } else if (invoiceFilters.value.status === 'pending') {
+                    result = result.filter(i => !i.paid)
+                }
+
+                // Filtrar por periodo
+                if (invoiceFilters.value.fromMonth) {
+                    result = result.filter(i => i.period && i.period >= invoiceFilters.value.fromMonth)
+                }
+                if (invoiceFilters.value.toMonth) {
+                    result = result.filter(i => i.period && i.period <= invoiceFilters.value.toMonth)
+                }
+
+                // Ordenar por fecha (más recientes primero)
+                return result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            })
+
+            // Guardar recibo (añadir o actualizar)
+            const saveInvoice = () => {
+                if (!validateInvoiceForm()) return
+
+                const finalAmount = calculateFinalAmount()
+                
+                const invoiceData = {
+                    studentId: invoiceForm.value.studentId,
+                    concept: invoiceForm.value.concept.trim(),
+                    amount: parseFloat(invoiceForm.value.amount),
+                    discount: parseInt(invoiceForm.value.discount || 0),
+                    finalAmount: finalAmount,
+                    period: invoiceForm.value.period || null,
+                    paid: invoiceForm.value.paid,
+                    paidAt: invoiceForm.value.paid ? (invoiceForm.value.paidAt || new Date().toISOString().split('T')[0]) : null,
+                    notes: invoiceForm.value.notes?.trim() || ''
+                }
+
+                if (editingInvoice.value) {
+                    // Actualizar recibo existente
+                    const index = invoices.value.findIndex(i => i.id === editingInvoice.value.id)
+                    if (index !== -1) {
+                        const updatedInvoice = {
+                            ...editingInvoice.value,
+                            ...invoiceData,
+                            updatedAt: new Date().toISOString()
+                        }
+                        invoices.value[index] = updatedInvoice
+                        showAlert('success', 'Recibo actualizado correctamente')
+                    }
+                } else {
+                    // Verificar recibos duplicados para el mismo periodo y alumno
+                    if (invoiceData.period) {
+                        const duplicateInvoice = invoices.value.find(i => 
+                            i.studentId === invoiceData.studentId && 
+                            i.period === invoiceData.period &&
+                            i.concept === invoiceData.concept
+                        )
+                        if (duplicateInvoice) {
+                            showAlert('warning', 'Ya existe un recibo para este alumno en el mismo periodo y con el mismo concepto')
+                            return
+                        }
+                    }
+
+                    // Crear nuevo recibo
+                    const newInvoice = {
+                        id: Date.now() + Math.random(),
+                        ...invoiceData,
+                        createdAt: new Date().toISOString()
+                    }
+                    invoices.value.push(newInvoice)
+                    showAlert('success', 'Recibo creado correctamente')
+                }
+
+                saveData()
+                closeInvoiceModal();
+                resetInvoiceForm()
+            }
+
+            // Editar recibo
+            const editInvoice = (invoice) => {
+                editingInvoice.value = { ...invoice }
+                invoiceForm.value = {
+                    studentId: invoice.studentId,
+                    concept: invoice.concept,
+                    amount: invoice.amount,
+                    discount: invoice.discount || 0,
+                    period: invoice.period || '',
+                    paid: invoice.paid,
+                    paidAt: invoice.paidAt || '',
+                    notes: invoice.notes || ''
+                }
+                openInvoiceModal();
+            }
+
+            // Ver detalles de recibo
+            const viewInvoice = (invoice) => {
+                selectedInvoice.value = invoice
+                if (!invoiceDetailsModalInstance) {
+                    invoiceDetailsModalInstance = new bootstrap.Modal(document.getElementById('invoiceDetailsModal'));
+                }
+                invoiceDetailsModalInstance.show();
+            }
+
+            // Cerrar modal de detalles de recibo
+            const closeInvoiceDetailsModal = () => {
+                if (invoiceDetailsModalInstance) {
+                    invoiceDetailsModalInstance.hide();
+                }
+            }
+
+            // Marcar recibo como pagado
+            const markAsPaid = (invoice) => {
+                const index = invoices.value.findIndex(i => i.id === invoice.id)
+                if (index !== -1) {
+                    const updatedInvoice = { 
+                        ...invoice, 
+                        paid: true,
+                        paidAt: new Date().toISOString().split('T')[0],
+                        updatedAt: new Date().toISOString()
+                    }
+                    invoices.value[index] = updatedInvoice
+                    saveData()
+                    showAlert('success', 'Recibo marcado como pagado')
+                    
+                    // Actualizar recibo seleccionado si está abierto en modal
+                    if (selectedInvoice.value && selectedInvoice.value.id === invoice.id) {
+                        selectedInvoice.value = updatedInvoice
+                    }
+                    
+                    // Cerrar el modal de detalles si está abierto
+                    closeInvoiceDetailsModal();
+                }
+            }
+
+            // Marcar recibo como pendiente
+            const markAsPending = (invoice) => {
+                const index = invoices.value.findIndex(i => i.id === invoice.id)
+                if (index !== -1) {
+                    const updatedInvoice = { 
+                        ...invoice, 
+                        paid: false,
+                        paidAt: null,
+                        updatedAt: new Date().toISOString()
+                    }
+                    invoices.value[index] = updatedInvoice
+                    saveData()
+                    showAlert('success', 'Recibo marcado como pendiente')
+                    
+                    // Actualizar recibo seleccionado si está abierto en modal
+                    if (selectedInvoice.value && selectedInvoice.value.id === invoice.id) {
+                        selectedInvoice.value = updatedInvoice
+                    }
+                }
+            }
+
+            // Eliminar recibo
+            const deleteInvoiceConfirm = (invoice) => {
+                deleteItem.value = {
+                    type: 'invoice',
+                    item: invoice,
+                    message: `¿Estás seguro de eliminar el recibo #${formatInvoiceNumber(invoice.id)}?`
+                }
+                deleteConfirmMessage.value = deleteItem.value.message
+                openDeleteModal();
+            }
+
+            // Generar recibo para un alumno
+            const generateInvoice = (student) => {
+                if (!student.active) {
+                    showAlert('warning', 'No se pueden generar recibos para alumnos inactivos')
+                    return
+                }
+
+                if (student.classes.length === 0) {
+                    showAlert('warning', 'El alumno no está inscrito en ninguna clase')
+                    return
+                }
+
+                resetInvoiceForm()
+                
+                // Calcular importe total de las clases
+                const totalAmount = student.classes.reduce((sum, classId) => {
+                    const classItem = classes.value.find(c => c.id === classId)
+                    return sum + (classItem ? classItem.price : 0)
+                }, 0)
+
+                // Obtener nombres de clases para el concepto
+                const classNames = student.classes.map(classId => {
+                    const classItem = classes.value.find(c => c.id === classId)
+                    return classItem ? classItem.name : ''
+                }).filter(Boolean).join(', ')
+
+                // Preparar formulario
+                invoiceForm.value = {
+                    studentId: student.id,
+                    concept: `Cuota mensual: ${classNames}`,
+                    amount: totalAmount,
+                    discount: 0,
+                    period: new Date().toISOString().substring(0, 7), // Mes actual
+                    paid: false,
+                    paidAt: '',
+                    notes: `Recibo generado automáticamente para ${student.name}`
+                }
+
+                openInvoiceModal();
+            }
+
+            // Generar recibos mensuales para todos los alumnos activos
+            const generateMonthlyInvoices = () => {
+                const activeStuds = students.value.filter(s => s.active && s.classes.length > 0)
+                
+                if (activeStuds.length === 0) {
+                    showAlert('warning', 'No hay alumnos activos con clases para generar recibos')
+                    return
+                }
+
+                // Solicitar confirmación para el mes actual por defecto
+                const currentMonth = new Date().toISOString().substring(0, 7)
+                const month = prompt('Introduce el mes para generar los recibos (YYYY-MM):', currentMonth)
+                
+                if (!month) return // Cancelado por el usuario
+
+                // Validar formato de mes (YYYY-MM)
+                if (!/^\d{4}-\d{2}$/.test(month)) {
+                    showAlert('danger', 'Formato de mes incorrecto. Utiliza YYYY-MM (ej: 2025-03)')
+                    return
+                }
+
+                let created = 0
+                let skipped = 0
+
+                activeStuds.forEach(student => {
+                    // Verificar si ya existe un recibo para este alumno en este mes
+                    const existingInvoice = invoices.value.find(i => 
+                        i.studentId === student.id && 
+                        i.period === month &&
+                        i.concept.startsWith('Cuota mensual')
+                    )
+
+                    if (existingInvoice) {
+                        skipped++
+                        return
+                    }
+
+                    // Calcular importe total de las clases
+                    const totalAmount = student.classes.reduce((sum, classId) => {
+                        const classItem = classes.value.find(c => c.id === classId)
+                        return sum + (classItem ? classItem.price : 0)
+                    }, 0)
+
+                    if (totalAmount <= 0) {
+                        skipped++
+                        return
+                    }
+
+                    // Obtener nombres de clases para el concepto
+                    const classNames = student.classes.map(classId => {
+                        const classItem = classes.value.find(c => c.id === classId)
+                        return classItem ? classItem.name : ''
+                    }).filter(Boolean).join(', ')
+
+                    // Crear nuevo recibo
+                    const newInvoice = {
+                        id: Date.now() + Math.random() + created,
+                        studentId: student.id,
+                        concept: `Cuota mensual: ${classNames}`,
+                        amount: totalAmount,
+                        discount: 0, // Sin descuento por defecto
+                        finalAmount: totalAmount,
+                        period: month,
+                        paid: false,
+                        notes: `Recibo generado automáticamente para ${formatPeriod(month)}`,
+                        createdAt: new Date().toISOString()
+                    }
+
+                    invoices.value.push(newInvoice)
+                    created++
+                })
+
+                saveData()
+                
+                if (created > 0) {
+                    showAlert('success', `Se han generado ${created} recibos para el mes de ${formatPeriod(month)}` + 
+                              (skipped > 0 ? ` (${skipped} omitidos por ya existir)` : ''))
+                } else {
+                    showAlert('warning', `No se han generado recibos. ${skipped} alumnos ya tenían recibos para ese mes.`)
+                }
+            }
+
+            // Exportar recibos a CSV
+            const exportInvoicesToCSV = () => {
+                if (filteredInvoices.value.length === 0) {
+                    showAlert('warning', 'No hay recibos para exportar con los filtros actuales')
+                    return
+                }
+
+                try {
+                    // Preparar datos
+                    const csvData = filteredInvoices.value.map(invoice => {
+                        const student = students.value.find(s => s.id === invoice.studentId)
+                        return {
+                            'Nº Recibo': formatInvoiceNumber(invoice.id),
+                            'Alumno': student ? student.name : 'Desconocido',
+                            'Concepto': invoice.concept,
+                            'Periodo': invoice.period ? formatPeriod(invoice.period) : '',
+                            'Fecha Emisión': formatDate(invoice.createdAt),
+                            'Importe': invoice.amount,
+                            'Descuento (%)': invoice.discount || 0,
+                            'Importe Final': invoice.finalAmount,
+                            'Estado': invoice.paid ? 'Pagado' : 'Pendiente',
+                            'Fecha Pago': invoice.paidAt ? formatDate(invoice.paidAt) : '',
+                            'Notas': invoice.notes || ''
+                        }
+                    })
+
+                    // Convertir a CSV
+                    const headers = Object.keys(csvData[0]).join(',')
+                    const rows = csvData.map(obj => Object.values(obj)
+                        .map(v => typeof v === 'string' ? `"${v.replace(/"/g, '""')}"` : v)
+                        .join(',')
+                    )
+                    const csv = [headers, ...rows].join('\n')
+
+                    // Descargar archivo
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `recibos-${new Date().toISOString().split('T')[0]}.csv`
+                    document.body.appendChild(a)
+                    a.click()
+                    document.body.removeChild(a)
+                    URL.revokeObjectURL(url)
+                    
+                    showAlert('success', 'Recibos exportados correctamente')
+                } catch (error) {
+                    console.error('Error al exportar recibos:', error)
+                    showAlert('danger', 'Error al exportar recibos: ' + error.message)
+                }
+            }
+
+            // =========================================================
+            // Funciones Auxiliares y Computados
+            // =========================================================
+
+            // Contador de alumnos activos
+            const activeStudentsCount = computed(() => {
+                return students.value.filter(s => s.active).length
+            })
+
+            // Contador de recibos pendientes
+            const pendingInvoicesCount = computed(() => {
+                return invoices.value.filter(i => !i.paid).length
+            })
+
+            // Variable y función para confirmación de eliminación
+            const deleteItem = ref(null)
+            const deleteConfirmMessage = ref('')
+
+            // Abrir modal de confirmación de eliminación
+            const openDeleteModal = () => {
+                if (!deleteModalInstance) {
+                    deleteModalInstance = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+                }
+                deleteModalInstance.show();
+            }
+
+            // Cerrar modal de confirmación de eliminación
+            const closeDeleteModal = () => {
+                if (deleteModalInstance) {
+                    deleteModalInstance.hide();
+                }
+            }
+
+            // Confirmar eliminación
+            const confirmDelete = () => {
+                if (!deleteItem.value) return
+                
+                const { type, item } = deleteItem.value
+                
+                if (type === 'student') {
+                    // Eliminar alumno
+                    const index = students.value.findIndex(s => s.id === item.id)
+                    if (index !== -1) {
+                        students.value.splice(index, 1)
+                        
+                        // Eliminar recibos asociados
+                        invoices.value = invoices.value.filter(i => i.studentId !== item.id)
+                        
+                        showAlert('success', `Alumno "${item.name}" eliminado correctamente`)
+                    }
+                } else if (type === 'class') {
+                    // Eliminar clase
+                    const index = classes.value.findIndex(c => c.id === item.id)
+                    if (index !== -1) {
+                        classes.value.splice(index, 1)
+                        showAlert('success', `Clase "${item.name}" eliminada correctamente`)
+                    }
+                } else if (type === 'invoice') {
+                    // Eliminar recibo
+                    const index = invoices.value.findIndex(i => i.id === item.id)
+                    if (index !== -1) {
+                        invoices.value.splice(index, 1)
+                        showAlert('success', `Recibo #${formatInvoiceNumber(item.id)} eliminado correctamente`)
+                    }
+                }
+                
+                saveData()
+                closeDeleteModal();
+                deleteItem.value = null
+            }
+
+            // Alumnos activos para selector
+            const activeStudents = computed(() => {
+                return students.value.filter(s => s.active)
+            })
+
+            // Clases más populares
+            const popularClasses = computed(() => {
+                // Calcular alumnos por clase
+                const classCounts = classes.value.map(c => ({
+                    ...c,
+                    studentCount: students.value.filter(s => s.classes.includes(c.id)).length
+                }))
+                
+                // Ordenar por número de alumnos (descendente)
+                return classCounts
+                    .sort((a, b) => b.studentCount - a.studentCount)
+                    .slice(0, 5) // Top 5
+            })
+
+            // Funciones para calcular totales de recibos
+            const totalPendingAmount = computed(() => {
+                return invoices.value
+                    .filter(i => !i.paid)
+                    .reduce((sum, invoice) => sum + invoice.finalAmount, 0)
+            })
+
+            const totalPaidAmount = computed(() => {
+                return invoices.value
+                    .filter(i => i.paid)
+                    .reduce((sum, invoice) => sum + invoice.finalAmount, 0)
+            })
+
+            const totalInvoicedAmount = computed(() => {
+                return totalPendingAmount.value + totalPaidAmount.value
+            })
+
+            const filteredPendingAmount = computed(() => {
+                return filteredInvoices.value
+                    .filter(i => !i.paid)
+                    .reduce((sum, invoice) => sum + invoice.finalAmount, 0)
+            })
+
+            const filteredPaidAmount = computed(() => {
+                return filteredInvoices.value
+                    .filter(i => i.paid)
+                    .reduce((sum, invoice) => sum + invoice.finalAmount, 0)
+            })
+
+            // Obtener y mostrar alumnos de una clase
+            const selectedClass = ref(null)
+            const studentsInSelectedClass = computed(() => {
+                if (!selectedClass.value) return []
+                return students.value.filter(s => s.classes.includes(selectedClass.value.id))
+            })
+
+            const viewClassStudents = (clase) => {
+                selectedClass.value = clase
+                if (!classStudentsModalInstance) {
+                    classStudentsModalInstance = new bootstrap.Modal(document.getElementById('classStudentsModal'));
+                }
+                classStudentsModalInstance.show();
+            }
+
+            const closeClassStudentsModal = () => {
+                if (classStudentsModalInstance) {
+                    classStudentsModalInstance.hide();
+                }
+            }
+
+            // Funciones de utilidad
+            const getClassName = (classId) => {
+                const classItem = classes.value.find(c => c.id === classId)
+                return classItem ? classItem.name : 'Clase Desconocida'
+            }
+
+            const getStudentName = (studentId) => {
+                const student = students.value.find(s => s.id === studentId)
+                return student ? student.name : 'Alumno Desconocido'
+            }
+
+            const studentsPerClass = (classId) => {
+                return students.value.filter(s => s.classes.includes(classId)).length
+            }
+
+            const formatDate = (dateStr) => {
+                if (!dateStr) return ''
+                const date = new Date(dateStr)
+                return date.toLocaleDateString('es-ES')
+            }
+
+            const formatPeriod = (periodStr) => {
+                if (!periodStr) return ''
+                const [year, month] = periodStr.split('-')
+                const monthNames = [
+                    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+                ]
+                return `${monthNames[parseInt(month) - 1]} ${year}`
+            }
+
+            const formatCurrency = (value) => {
+                return value?.toLocaleString('es-ES', {
+                    style: 'currency',
+                    currency: 'EUR',
+                    minimumFractionDigits: 2
+                }) || '0,00 €'
+            }
+
+            const formatInvoiceNumber = (id) => {
+                return `INV-${String(Math.floor(id)).padStart(6, '0')}`
+            }
+
+            // Cargar datos al iniciar
+            onMounted(() => {
+                loadData()
+                
+                // Inicializar fecha del mes actual para filtros
+                const currentMonth = new Date().toISOString().substring(0, 7)
+                invoiceFilters.value.fromMonth = currentMonth
+                
+                // Inicializar los modales después de que el DOM esté listo
+                setTimeout(() => {
+                    try {
+                        // Iniciamos las instancias de los modales después de que Vue se haya montado
+                        studentModalInstance = new bootstrap.Modal(document.getElementById('studentModal'));
+                        invoiceModalInstance = new bootstrap.Modal(document.getElementById('invoiceModal'));
+                        invoiceDetailsModalInstance = new bootstrap.Modal(document.getElementById('invoiceDetailsModal'));
+                        deleteModalInstance = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+                        classStudentsModalInstance = new bootstrap.Modal(document.getElementById('classStudentsModal'));
+                    } catch (error) {
+                        console.error("Error al inicializar modales:", error);
+                    }
+                }, 500);
+            })
+
+            return {
+                currentView,
+                students,
+                classes,
+                invoices,
+                alert,
+                showAlert,
+                
+                // Dashboard
+                activeStudentsCount,
+                pendingInvoicesCount,
+                totalPendingAmount,
+                totalPaidAmount,
+                totalInvoicedAmount,
+                popularClasses,
+                
+                // Gestión de clases
+                classForm,
+                classErrors,
+                editingClass,
+                classSearch,
+                filteredClasses,
+                saveClass,
+                editClass,
+                cancelClassEdit,
+                deleteClassConfirm,
+                
+                // Gestión de alumnos
+                studentSearch,
+                filters,
+                studentForm,
+                studentErrors,
+                editingStudent,
+                filteredStudents,
+                resetStudentForm,
+                saveStudent,
+                editStudent,
+                toggleStudentStatus,
+                deleteStudentConfirm,
+                calculateTotalMonthly,
+                openStudentModal,
+                closeStudentModal,
+                
+                // Gestión de recibos
+                invoiceSearch,
+                invoiceFilters,
+                invoiceForm,
+                invoiceErrors,
+                editingInvoice,
+                selectedInvoice,
+                filteredInvoices,
+                filteredPendingAmount,
+                filteredPaidAmount,
+                clearInvoiceFilters,
+                resetInvoiceForm,
+                calculateDiscountAmount,
+                calculateFinalAmount,
+                saveInvoice,
+                editInvoice,
+                viewInvoice,
+                markAsPaid,
+                markAsPending,
+                deleteInvoiceConfirm,
+                generateInvoice,
+                generateMonthlyInvoices,
+                exportInvoicesToCSV,
+                openInvoiceModal,
+                closeInvoiceModal,
+                closeInvoiceDetailsModal,
+                
+                // Eliminación
+                deleteConfirmMessage,
+                confirmDelete,
+                openDeleteModal,
+                closeDeleteModal,
+                
+                // Alumnos por clase
+                selectedClass,
+                studentsInSelectedClass,
+                viewClassStudents,
+                closeClassStudentsModal,
+                
+                // Exportación
+                exportData,
+                
+                // Utilidades
+                getClassName,
+                getStudentName,
+                studentsPerClass,
+                formatDate,
+                formatPeriod,
+                formatCurrency,
+                formatInvoiceNumber,
+                
+                // Alumnos activos para combos
+                activeStudents
+            }
+        }
+    }).mount('#app')
+    </script>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
